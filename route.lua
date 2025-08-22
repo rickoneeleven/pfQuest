@@ -26,8 +26,16 @@ local function GetNearest(xstart, ystart, db, blacklist)
     end
   end
 
-  if not best then return end
+  if not best then 
+    if pfQuest.debug and pfQuest.debug.IsEnabled() then
+      pfQuest.debug.AddLog("WARNING", "GetNearest found no valid points from (" .. xstart .. "," .. ystart .. ")")
+    end
+    return 
+  end
 
+  if pfQuest.debug and pfQuest.debug.IsEnabled() then
+    pfQuest.debug.AddLog("DEBUG", "GetNearest selected point (" .. db[best][1] .. "," .. db[best][2] .. ") at distance " .. nearest)
+  end
   blacklist[best] = true
   return db[best]
 end
@@ -197,6 +205,9 @@ pfQuest.route:SetScript("OnUpdate", function()
 
   -- sort all coords by distance only once per second
   if not this.recalculate or this.recalculate < GetTime() then
+    if pfQuest.debug and pfQuest.debug.IsEnabled() then
+      pfQuest.debug.AddLog("DEBUG", "Starting route recalculation with " .. table.getn(this.coords) .. " coordinates")
+    end
     table.sort(this.coords, sortfunc)
 
     -- order list on custom targets
@@ -213,6 +224,9 @@ pfQuest.route:SetScript("OnUpdate", function()
 
       -- rearrange coordinates
       if target then
+        if pfQuest.debug and pfQuest.debug.IsEnabled() then
+          pfQuest.debug.AddLog("DEBUG", "Rearranging coordinates to prioritize target at index " .. target)
+        end
         local tmp = {}
         table.insert(tmp, this.coords[target])
 
@@ -247,11 +261,17 @@ pfQuest.route:SetScript("OnUpdate", function()
     this.firstnode = tostring(this.coords[1][1]..this.coords[1][2])
 
     -- recalculate objective paths
+    if pfQuest.debug and pfQuest.debug.IsEnabled() then
+      pfQuest.debug.AddLog("DEBUG", "Recalculating objective paths starting from (" .. this.coords[1][1] .. "," .. this.coords[1][2] .. ")")
+    end
     local route = { [1] = this.coords[1] }
     local blacklist = { [1] = true }
     for i=2, table.getn(this.coords) do
       if route[i-1] then -- make sure the route was not blacklisted
         route[i] = GetNearest(route[i-1][1],route[i-1][2],this.coords, blacklist)
+        if pfQuest.debug and pfQuest.debug.IsEnabled() and route[i] then
+          pfQuest.debug.AddLog("DEBUG", "Route step " .. i .. ": nearest point (" .. route[i][1] .. "," .. route[i][2] .. ")")
+        end
       end
 
       -- remove other item requirement gameobjects of same type from route
@@ -285,6 +305,9 @@ pfQuest.route:SetScript("OnUpdate", function()
     -- draw player-to-object path
     ClearPath(playerpath)
     ClearPath(mplayerpath)
+    if pfQuest.debug and pfQuest.debug.IsEnabled() then
+      pfQuest.debug.AddLog("DEBUG", "Drawing player path from (" .. (xplayer*100) .. "," .. (yplayer*100) .. ") to (" .. this.coords[1][1] .. "," .. this.coords[1][2] .. ")")
+    end
     DrawLine(playerpath,xplayer*100,yplayer*100,this.coords[1][1],this.coords[1][2],true)
 
     -- also draw minimap path if enabled

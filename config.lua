@@ -82,6 +82,8 @@ pfQuest_defconfig = {
     default = "1", type = "checkbox", config = "trackerlevel" },
   { text = L["Show Level On Quest Log"],
     default = "0", type = "checkbox", config = "questloglevel" },
+  { text = L["Enable Debug Logging"],
+    default = "0", type = "checkbox", config = "debuglog" },
 
   { text = L["Questing"],
     default = nil, type = "header" },
@@ -360,7 +362,11 @@ function pfQuestConfig:CreateConfigEntries(config)
             pfQuest_config[this.config] = "0"
           end
 
-          pfQuest:ResetAll()
+          if this.config == "debuglog" and pfQuest.debug then
+            pfQuest.debug.OnConfigChanged()
+          else
+            pfQuest:ResetAll()
+          end
         end)
       elseif data.type == "text" then
         -- input field
