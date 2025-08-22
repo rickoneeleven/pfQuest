@@ -145,6 +145,8 @@ pfQuest_defconfig = {
     default = "1", type = "checkbox", config = "routeender" },
   { text = L["Include Quest Starters"],
     default = "0", type = "checkbox", config = "routestarter" },
+  { text = L["Route by Quest Level (Lowest First)"],
+    default = "0", type = "checkbox", config = "routebyquestlevel" },
   { text = L["Show Route On Minimap"],
     default = "0", type = "checkbox", config = "routeminimap" },
   { text = L["Show Arrow Along Routes"],

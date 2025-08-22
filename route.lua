@@ -181,6 +181,20 @@ end
 
 local lastpos, completed = 0, 0
 local function sortfunc(a,b) return a[4] < b[4] end
+
+local function sortfunc_level(a, b)
+  -- Get quest levels (default to 999 for missing levels to sort to bottom)
+  local alvl = a[3] and a[3].qlvl or 999
+  local blvl = b[3] and b[3].qlvl or 999
+  
+  -- Sort by level first (lowest first)
+  if alvl ~= blvl then
+    return alvl < blvl
+  end
+  
+  -- Same level: fallback to distance
+  return a[4] < b[4]
+end
 pfQuest.route:SetScript("OnUpdate", function()
   -- Debug: log route function activity (throttled)
   if pfQuest.debug and pfQuest.debug.IsEnabled() and (not this.debug_throttle or this.debug_throttle < GetTime()) then
@@ -264,7 +278,8 @@ pfQuest.route:SetScript("OnUpdate", function()
       end
       
       -- Complete quest log analysis
-      pfQuest.debug.AddLog("INFO", "========== COMPLETE QUEST LOG ANALYSIS ==========")
+      local routingMode = pfQuest_config["routebyquestlevel"] == "1" and "LEVEL-BASED" or "DISTANCE-BASED"
+      pfQuest.debug.AddLog("INFO", "========== COMPLETE QUEST LOG ANALYSIS (" .. routingMode .. ") ==========")
       
       -- Count totals
       local routableCount = 0
@@ -288,7 +303,8 @@ pfQuest.route:SetScript("OnUpdate", function()
             for zone, _ in pairs(info.zones) do
               zones = zones .. zone .. " "
             end
-            pfQuest.debug.AddLog("INFO", "[✓] '" .. questName .. "' - " .. info.nodeCount .. " objectives in " .. zones)
+            local questLevel = pfDB.quests[info.id] and pfDB.quests[info.id]["lvl"] or "?"
+            pfQuest.debug.AddLog("INFO", "[✓] [" .. questLevel .. "] '" .. questName .. "' - " .. info.nodeCount .. " objectives in " .. zones)
           end
         end
       end
@@ -298,7 +314,8 @@ pfQuest.route:SetScript("OnUpdate", function()
         pfQuest.debug.AddLog("INFO", "--- SKIPPED QUESTS (No Routing) ---")
         for questName, info in pairs(allQuests) do
           if not info.hasNodes then
-            pfQuest.debug.AddLog("INFO", "[✗] '" .. questName .. "' - " .. info.reason)
+            local questLevel = pfDB.quests[info.id] and pfDB.quests[info.id]["lvl"] or "?"
+            pfQuest.debug.AddLog("INFO", "[✗] [" .. questLevel .. "] '" .. questName .. "' - " .. info.reason)
           end
         end
       end
@@ -314,19 +331,27 @@ pfQuest.route:SetScript("OnUpdate", function()
         pfQuest.debug.AddLog("INFO", "Cross-zone objectives found in: " .. otherZones)
       end
     end
-    table.sort(this.coords, sortfunc)
+    -- Choose sort function based on config
+    if pfQuest_config["routebyquestlevel"] == "1" then
+      table.sort(this.coords, sortfunc_level)
+    else
+      table.sort(this.coords, sortfunc)
+    end
     
     -- Log routing decision after sorting
     if pfQuest.debug and pfQuest.debug.IsEnabled() and this.coords[1] then
       local selectedQuest = this.coords[1][3] and this.coords[1][3].title or "Unknown Quest"
+      local selectedLevel = this.coords[1][3] and this.coords[1][3].qlvl or "?"
       local distance = this.coords[1][4] or 0
-      pfQuest.debug.AddLog("INFO", "Auto-routing to nearest: '" .. selectedQuest .. "' at " .. string.format("%.1f", distance) .. " units")
+      local routingBy = pfQuest_config["routebyquestlevel"] == "1" and "level" or "distance"
+      pfQuest.debug.AddLog("INFO", "Auto-routing (" .. routingBy .. "): [" .. selectedLevel .. "] '" .. selectedQuest .. "' at " .. string.format("%.1f", distance) .. " units")
       
       -- Show alternatives for context
       if this.coords[2] then
         local altQuest = this.coords[2][3] and this.coords[2][3].title or "Unknown Quest"
+        local altLevel = this.coords[2][3] and this.coords[2][3].qlvl or "?"
         local altDistance = this.coords[2][4] or 0
-        pfQuest.debug.AddLog("DEBUG", "Next closest option: '" .. altQuest .. "' at " .. string.format("%.1f", altDistance) .. " units")
+        pfQuest.debug.AddLog("DEBUG", "Next option: [" .. altLevel .. "] '" .. altQuest .. "' at " .. string.format("%.1f", altDistance) .. " units")
       end
     end
 
@@ -367,6 +392,42 @@ pfQuest.route:SetScript("OnUpdate", function()
   -- show arrow when route exists and is stable
   if not wrongmap and this.coords[1] and this.coords[1][4] and not this.arrow:IsShown() and pfQuest_config["arrow"] == "1" and GetTime() > completed + 1 then
     this.arrow:Show()
+  end
+
+  -- Handle non-routable lowest quest when level routing is enabled
+  if pfQuest_config["routebyquestlevel"] == "1" and (not this.coords[1] or not this.coords[1][4]) then
+    -- Find lowest level quest in questlog
+    local lowestQuest = nil
+    local lowestLevel = 999
+    local lowestQuestId = nil
+    
+    for questid, questdata in pairs(pfQuest.questlog or {}) do
+      local qlvl = pfDB.quests[questid] and pfDB.quests[questid]["lvl"]
+      if qlvl and qlvl < lowestLevel then
+        lowestLevel = qlvl
+        lowestQuest = questdata.title
+        lowestQuestId = questid
+      end
+    end
+    
+    if lowestQuest then
+      -- Show "Complete Manually" message in arrow frame
+      local color = pfMap:HexDifficultyColor(lowestLevel) or "|cffff5555"
+      this.title:SetText(color .. "[" .. lowestLevel .. "] " .. lowestQuest .. "|r")
+      this.description:SetText("|cffffcc00Complete manually - no route available|r")
+      this.texture:SetTexture(pfQuestConfig.path.."\\img\\node")
+      this.texture:SetVertexColor(1, 0.5, 0.5, 1)
+      this.arrow:Show()
+      
+      if pfQuest.debug and pfQuest.debug.IsEnabled() then
+        pfQuest.debug.AddLog("INFO", "Level routing: Manual completion required for lowest quest '" .. lowestQuest .. "' (level " .. lowestLevel .. ")")
+      end
+      
+      ClearPath(objectivepath)
+      ClearPath(playerpath) 
+      ClearPath(mplayerpath)
+      return
+    end
   end
 
   -- abort without any nodes or distances
