@@ -376,7 +376,7 @@ pfQuest.route:SetScript("OnUpdate", function()
         end
       end
       
-      -- Capture routable quest info before any clearing
+      -- Capture routable quest info
       local routableQuestCount = 0
       local routableQuests = {}
       for id, data in pairs(this.coords) do
@@ -387,12 +387,12 @@ pfQuest.route:SetScript("OnUpdate", function()
         end
       end
       
-      -- Check if we have coords for the absolute lowest quest
+      -- Check if we have coords for the absolute lowest quest by examining ALL coordinates
       local hasRoutingForLowest = false
-      if this.coords[1] and this.coords[1][3] then
-        local routedLevel = this.coords[1][3].qlvl or 999
-        if routedLevel == absoluteLowestLevel then
+      for id, data in pairs(this.coords) do
+        if data[3] and data[3].title and data[3].title == absoluteLowestQuest then
           hasRoutingForLowest = true
+          break
         end
       end
       
@@ -414,8 +414,7 @@ pfQuest.route:SetScript("OnUpdate", function()
         manualQuestName = absoluteLowestQuest
         manualQuestLevel = absoluteLowestLevel
         
-        -- Clear coords to prevent normal routing
-        this.coords = {}
+        -- Don't clear coordinates - allow other quests to show in debug but hide routes
         ClearPath(objectivepath)
         ClearPath(playerpath) 
         ClearPath(mplayerpath)
