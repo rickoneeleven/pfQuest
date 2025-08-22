@@ -1,28 +1,35 @@
 pfQuest.debug = CreateFrame("Frame")
 
-if not pfQuest_debuglog then
-  pfQuest_debuglog = {}
-end
-
 local debugEnabled = false
 local maxLogEntries = 1000
 local testTimer = nil
 
 local function GetTimestamp()
-  local date = date("*t")
-  local time = GetTime()
-  local ms = math.floor((time - math.floor(time)) * 1000)
+  local dt = date("*t")
+  local gameTime = GetTime()
+  local ms = math.floor((gameTime - math.floor(gameTime)) * 1000)
   return string.format("[%04d-%02d-%02d %02d:%02d:%02d.%03d]", 
-    date.year, date.month, date.day, date.hour, date.min, date.sec, ms)
+    dt.year, dt.month, dt.day, dt.hour, dt.min, dt.sec, ms)
 end
 
 function pfQuest.debug.AddLog(level, message)
-  if not debugEnabled then return end
+  -- Initialize table if somehow it became nil
+  if not pfQuest_debuglog then
+    pfQuest_debuglog = {}
+  end
+  
+  -- Always log startup/shutdown messages even if not enabled
+  if not debugEnabled and level ~= "INFO" then return end
   
   local timestamp = GetTimestamp()
   local logEntry = timestamp .. " [" .. level .. "] " .. message
   
   table.insert(pfQuest_debuglog, logEntry)
+  
+  -- Also output to default chat for immediate feedback
+  if level == "INFO" or level == "TEST" then
+    DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccpfQuest Debug:|r " .. logEntry)
+  end
   
   if table.getn(pfQuest_debuglog) > maxLogEntries then
     table.remove(pfQuest_debuglog, 1)
@@ -47,6 +54,8 @@ function pfQuest.debug.SetEnabled(enabled)
       end
     end)
     pfQuest.debug.AddLog("INFO", "Debug logging enabled")
+    -- Force an immediate test entry
+    pfQuest.debug.AddLog("TEST", "Debug system activated - test entry")
   elseif not enabled and testTimer then
     testTimer:SetScript("OnUpdate", nil)
     testTimer = nil
@@ -63,9 +72,26 @@ end
 pfQuest.debug:RegisterEvent("ADDON_LOADED")
 pfQuest.debug:SetScript("OnEvent", function()
   if event == "ADDON_LOADED" and (arg1 == "pfQuest" or arg1 == "pfQuest-tbc" or arg1 == "pfQuest-wotlk") then
+    -- Initialize SavedVariables if it doesn't exist
+    if not pfQuest_debuglog then
+      pfQuest_debuglog = {}
+    end
+    
+    -- Always add a startup message to ensure table is never empty
+    local timestamp = GetTimestamp()
+    table.insert(pfQuest_debuglog, timestamp .. " [INFO] pfQuest loaded - Debug system initialized")
+    
+    -- Trim logs if too many
+    if table.getn(pfQuest_debuglog) > maxLogEntries then
+      local excess = table.getn(pfQuest_debuglog) - maxLogEntries
+      for i = 1, excess do
+        table.remove(pfQuest_debuglog, 1)
+      end
+    end
+    
+    -- Enable debug if configured
     if pfQuest_config and pfQuest_config["debuglog"] == "1" then
       pfQuest.debug.SetEnabled(true)
-      pfQuest.debug.AddLog("INFO", "Debug logging enabled at startup")
     end
   end
 end)
