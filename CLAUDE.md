@@ -18,10 +18,13 @@ This is an **independent git repository** for the pfQuest WoW Classic addon that
 4. Push to the remote repository for WoW client to pull
 
 ### Debug System
-The repository now includes a comprehensive debug logging system:
-- **debug.lua**: Core debug module with SavedVariables logging
-- **Config toggle**: "Enable Debug Logging" checkbox in addon settings
-- **Output location**: WTF\Account\ACCOUNTNAME\SavedVariables\pfQuest.lua
+**Implementation**: SavedVariables-based file logging with comprehensive quest routing analysis
+- **debug.lua**: Core module, event-driven initialization (VARIABLES_LOADED/ADDON_LOADED)
+- **route.lua**: Quest log analysis, routing decisions, coordinate tracking
+- **config.lua**: UI toggle integration with real-time enable/disable
+- **Storage**: pfQuest_debuglog circular buffer (1000 entries max)
+- **Output**: WTF\Account\ACCOUNTNAME\SavedVariables\pfQuest.lua only (no chat spam)
+- **Analysis**: Shows all quests (routable vs skipped), exclusion reasons, routing decisions
 - **Format**: [YYYY-MM-DD HH:MM:SS.mmm] [LEVEL] message
 
 ### Git Commands
