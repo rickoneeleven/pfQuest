@@ -463,11 +463,11 @@ pfQuest.route:SetScript("OnUpdate", function()
     if lowestQuest then
       -- Show "Complete Manually" message in arrow frame
       local color = pfMap:HexDifficultyColor(lowestLevel) or "|cffff5555"
-      this.title:SetText(color .. "[" .. lowestLevel .. "] " .. lowestQuest .. "|r")
-      this.description:SetText("|cffffcc00Complete manually - no route available|r")
-      this.texture:SetTexture(pfQuestConfig.path.."\\img\\node")
-      this.texture:SetVertexColor(1, 0.5, 0.5, 1)
-      this.arrow:Show()
+      pfQuest.route.arrow.title:SetText(color .. "[" .. lowestLevel .. "] " .. lowestQuest .. "|r")
+      pfQuest.route.arrow.description:SetText("|cffffcc00Complete manually - no route available|r")
+      pfQuest.route.arrow.texture:SetTexture(pfQuestConfig.path.."\\img\\node")
+      pfQuest.route.arrow.texture:SetVertexColor(1, 0.5, 0.5, 1)
+      pfQuest.route.arrow:Show()
       
       if pfQuest.debug and pfQuest.debug.IsEnabled() then
         pfQuest.debug.AddLog("INFO", "Level routing: Manual completion required for lowest quest '" .. lowestQuest .. "' (level " .. lowestLevel .. ")")
