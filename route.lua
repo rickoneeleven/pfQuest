@@ -182,6 +182,21 @@ end
 local lastpos, completed = 0, 0
 local function sortfunc(a,b) return a[4] < b[4] end
 
+local function getQuestLevel(questid, questTitle)
+  -- Try numeric quest ID first
+  if tonumber(questid) then
+    return pfDB.quests[questid] and pfDB.quests[questid]["lvl"]
+  else
+    -- Try to find quest by title for non-database quests
+    for qid, qdata in pairs(pfDB.quests.loc or {}) do
+      if qdata.T == questTitle then
+        return pfDB.quests[tonumber(qid)] and pfDB.quests[tonumber(qid)]["lvl"]
+      end
+    end
+  end
+  return nil
+end
+
 local function sortfunc_level(a, b)
   -- Get quest levels (default to 999 for missing levels to sort to bottom)
   local alvl = a[3] and a[3].qlvl or 999
@@ -303,7 +318,7 @@ pfQuest.route:SetScript("OnUpdate", function()
             for zone, _ in pairs(info.zones) do
               zones = zones .. zone .. " "
             end
-            local questLevel = pfDB.quests[info.id] and pfDB.quests[info.id]["lvl"] or "?"
+            local questLevel = getQuestLevel(info.id, questName) or "?"
             pfQuest.debug.AddLog("INFO", "[✓] [" .. questLevel .. "] '" .. questName .. "' - " .. info.nodeCount .. " objectives in " .. zones)
           end
         end
@@ -314,7 +329,7 @@ pfQuest.route:SetScript("OnUpdate", function()
         pfQuest.debug.AddLog("INFO", "--- SKIPPED QUESTS (No Routing) ---")
         for questName, info in pairs(allQuests) do
           if not info.hasNodes then
-            local questLevel = pfDB.quests[info.id] and pfDB.quests[info.id]["lvl"] or "?"
+            local questLevel = getQuestLevel(info.id, questName) or "?"
             pfQuest.debug.AddLog("INFO", "[✗] [" .. questLevel .. "] '" .. questName .. "' - " .. info.reason)
           end
         end
@@ -336,6 +351,41 @@ pfQuest.route:SetScript("OnUpdate", function()
       table.sort(this.coords, sortfunc_level)
     else
       table.sort(this.coords, sortfunc)
+    end
+    
+    -- When level routing is enabled, verify we're routing to the absolute lowest quest
+    if pfQuest_config["routebyquestlevel"] == "1" then
+      -- Find the absolute lowest level quest in questlog
+      local absoluteLowestQuest = nil
+      local absoluteLowestLevel = 999
+      local absoluteLowestQuestId = nil
+      
+      for questid, questdata in pairs(pfQuest.questlog or {}) do
+        local qlvl = getQuestLevel(questid, questdata.title)
+        if qlvl and qlvl < absoluteLowestLevel then
+          absoluteLowestLevel = qlvl
+          absoluteLowestQuest = questdata.title
+          absoluteLowestQuestId = questid
+        end
+      end
+      
+      -- Check if we have coords for the absolute lowest quest
+      local hasRoutingForLowest = false
+      if this.coords[1] and this.coords[1][3] then
+        local routedLevel = this.coords[1][3].qlvl or 999
+        if routedLevel == absoluteLowestLevel then
+          hasRoutingForLowest = true
+        end
+      end
+      
+      -- If the absolute lowest quest has no routing, show manual completion message
+      if absoluteLowestQuest and not hasRoutingForLowest then
+        -- Clear coords to trigger manual completion display
+        this.coords = {}
+        if pfQuest.debug and pfQuest.debug.IsEnabled() then
+          pfQuest.debug.AddLog("INFO", "Level routing: Clearing route - lower level quest [" .. absoluteLowestLevel .. "] '" .. absoluteLowestQuest .. "' exists without routing")
+        end
+      end
     end
     
     -- Log routing decision after sorting
@@ -402,7 +452,7 @@ pfQuest.route:SetScript("OnUpdate", function()
     local lowestQuestId = nil
     
     for questid, questdata in pairs(pfQuest.questlog or {}) do
-      local qlvl = pfDB.quests[questid] and pfDB.quests[questid]["lvl"]
+      local qlvl = getQuestLevel(questid, questdata.title)
       if qlvl and qlvl < lowestLevel then
         lowestLevel = qlvl
         lowestQuest = questdata.title
