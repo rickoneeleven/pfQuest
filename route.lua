@@ -369,6 +369,17 @@ pfQuest.route:SetScript("OnUpdate", function()
         end
       end
       
+      -- Capture routable quest info before any clearing
+      local routableQuestCount = 0
+      local routableQuests = {}
+      for id, data in pairs(this.coords) do
+        if data[3] and data[3].title then
+          local questLevel = data[3].qlvl or "?"
+          routableQuests[data[3].title] = questLevel
+          routableQuestCount = routableQuestCount + 1
+        end
+      end
+      
       -- Check if we have coords for the absolute lowest quest
       local hasRoutingForLowest = false
       if this.coords[1] and this.coords[1][3] then
@@ -378,13 +389,34 @@ pfQuest.route:SetScript("OnUpdate", function()
         end
       end
       
-      -- If the absolute lowest quest has no routing, show manual completion message
+      -- If the absolute lowest quest has no routing, force manual completion
       if absoluteLowestQuest and not hasRoutingForLowest then
-        -- Clear coords to trigger manual completion display
-        this.coords = {}
         if pfQuest.debug and pfQuest.debug.IsEnabled() then
-          pfQuest.debug.AddLog("INFO", "Level routing: Clearing route - lower level quest [" .. absoluteLowestLevel .. "] '" .. absoluteLowestQuest .. "' exists without routing")
+          pfQuest.debug.AddLog("INFO", "Level routing: Found " .. routableQuestCount .. " routable quests, but forcing manual completion of lowest quest [" .. absoluteLowestLevel .. "] '" .. absoluteLowestQuest .. "'")
+          
+          -- Show what we're bypassing
+          if routableQuestCount > 0 then
+            pfQuest.debug.AddLog("INFO", "--- BYPASSED ROUTABLE QUESTS ---")
+            for questName, questLevel in pairs(routableQuests) do
+              pfQuest.debug.AddLog("INFO", "  Bypassing: [" .. questLevel .. "] '" .. questName .. "' - has routing but not lowest level")
+            end
+          end
         end
+        
+        -- Set up manual completion display
+        local color = pfMap:HexDifficultyColor(absoluteLowestLevel) or "|cffff5555"
+        pfQuest.route.arrow.title:SetText(color .. "[" .. absoluteLowestLevel .. "] " .. absoluteLowestQuest .. "|r")
+        pfQuest.route.arrow.description:SetText("|cffffcc00Complete manually - no route available|r")
+        pfQuest.route.arrow.texture:SetTexture(pfQuestConfig.path.."\\img\\node")
+        pfQuest.route.arrow.texture:SetVertexColor(1, 0.5, 0.5, 1)
+        pfQuest.route.arrow:Show()
+        
+        -- Clear coords to prevent normal routing
+        this.coords = {}
+        ClearPath(objectivepath)
+        ClearPath(playerpath) 
+        ClearPath(mplayerpath)
+        return
       end
     end
     
@@ -444,41 +476,6 @@ pfQuest.route:SetScript("OnUpdate", function()
     this.arrow:Show()
   end
 
-  -- Handle non-routable lowest quest when level routing is enabled
-  if pfQuest_config["routebyquestlevel"] == "1" and (not this.coords[1] or not this.coords[1][4]) then
-    -- Find lowest level quest in questlog
-    local lowestQuest = nil
-    local lowestLevel = 999
-    local lowestQuestId = nil
-    
-    for questid, questdata in pairs(pfQuest.questlog or {}) do
-      local qlvl = getQuestLevel(questid, questdata.title)
-      if qlvl and qlvl < lowestLevel then
-        lowestLevel = qlvl
-        lowestQuest = questdata.title
-        lowestQuestId = questid
-      end
-    end
-    
-    if lowestQuest then
-      -- Show "Complete Manually" message in arrow frame
-      local color = pfMap:HexDifficultyColor(lowestLevel) or "|cffff5555"
-      pfQuest.route.arrow.title:SetText(color .. "[" .. lowestLevel .. "] " .. lowestQuest .. "|r")
-      pfQuest.route.arrow.description:SetText("|cffffcc00Complete manually - no route available|r")
-      pfQuest.route.arrow.texture:SetTexture(pfQuestConfig.path.."\\img\\node")
-      pfQuest.route.arrow.texture:SetVertexColor(1, 0.5, 0.5, 1)
-      pfQuest.route.arrow:Show()
-      
-      if pfQuest.debug and pfQuest.debug.IsEnabled() then
-        pfQuest.debug.AddLog("INFO", "Level routing: Manual completion required for lowest quest '" .. lowestQuest .. "' (level " .. lowestLevel .. ")")
-      end
-      
-      ClearPath(objectivepath)
-      ClearPath(playerpath) 
-      ClearPath(mplayerpath)
-      return
-    end
-  end
 
   -- abort without any nodes or distances
   if not this.coords[1] or not this.coords[1][4] or pfQuest_config["routes"] == "0" then
