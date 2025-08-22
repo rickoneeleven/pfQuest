@@ -4,8 +4,15 @@ local _, _, _, client = GetBuildInfo()
 client = client or 11200
 local _G = client == 11200 and getfenv(0) or _G
 
+-- Preserve existing pfQuest properties (like debug module) before recreating
+local oldPfQuest = pfQuest
 pfQuest = CreateFrame("Frame")
 pfQuest.icons = {}
+
+-- Restore debug module if it was already created
+if oldPfQuest and oldPfQuest.debug then
+  pfQuest.debug = oldPfQuest.debug
+end
 
 if client >= 30300 then
   pfQuest.dburl = "https://www.wowhead.com/wotlk/quest="
