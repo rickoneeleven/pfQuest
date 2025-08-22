@@ -414,11 +414,11 @@ pfQuest.route:SetScript("OnUpdate", function()
         manualQuestName = absoluteLowestQuest
         manualQuestLevel = absoluteLowestLevel
         
-        -- Don't clear coordinates - allow other quests to show in debug but hide routes
+        -- Clear coordinates to prevent routing to other quests
+        this.coords = {}
         ClearPath(objectivepath)
         ClearPath(playerpath) 
         ClearPath(mplayerpath)
-        return
       else
         -- Clear manual state if we have routing for lowest quest
         manualQuestName = nil
@@ -477,12 +477,7 @@ pfQuest.route:SetScript("OnUpdate", function()
     this.recalculate = GetTime() + 1
   end
 
-  -- show arrow when route exists and is stable
-  if not wrongmap and this.coords[1] and this.coords[1][4] and not this.arrow:IsShown() and pfQuest_config["arrow"] == "1" and GetTime() > completed + 1 then
-    this.arrow:Show()
-  end
-
-  -- Handle manual completion display outside recalculation
+  -- Handle manual completion display first - takes priority over normal routing
   if manualQuestName and manualQuestLevel and pfQuest_config["arrow"] == "1" then
     local color = pfMap:HexDifficultyColor(manualQuestLevel) or "|cffff5555"
     pfQuest.route.arrow.title:SetText(color .. "[" .. manualQuestLevel .. "] " .. manualQuestName .. "|r")
@@ -493,11 +488,14 @@ pfQuest.route:SetScript("OnUpdate", function()
     if pfQuest.debug and pfQuest.debug.IsEnabled() then
       pfQuest.debug.AddLog("DEBUG", "Manual completion arrow displayed for [" .. manualQuestLevel .. "] '" .. manualQuestName .. "'")
     end
+  elseif not wrongmap and this.coords[1] and this.coords[1][4] and not this.arrow:IsShown() and pfQuest_config["arrow"] == "1" and GetTime() > completed + 1 then
+    -- show arrow when route exists and is stable (only if not in manual mode)
+    this.arrow:Show()
   end
 
 
-  -- abort without any nodes or distances
-  if not this.coords[1] or not this.coords[1][4] or pfQuest_config["routes"] == "0" then
+  -- abort without any nodes or distances, or if in manual completion mode
+  if manualQuestName or not this.coords[1] or not this.coords[1][4] or pfQuest_config["routes"] == "0" then
     if pfQuest.debug and pfQuest.debug.IsEnabled() then
       if not this.coords[1] then
         pfQuest.debug.AddLog("WARNING", "No routing available - no quest coordinates found")
