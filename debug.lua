@@ -26,11 +26,6 @@ function pfQuest.debug.AddLog(level, message)
   
   table.insert(pfQuest_debuglog, logEntry)
   
-  -- Also output to default chat for immediate feedback
-  if level == "INFO" or level == "TEST" then
-    DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccpfQuest Debug:|r " .. logEntry)
-  end
-  
   if table.getn(pfQuest_debuglog) > maxLogEntries then
     table.remove(pfQuest_debuglog, 1)
   end
@@ -45,6 +40,7 @@ function pfQuest.debug.SetEnabled(enabled)
   
   if enabled then
     pfQuest.debug.AddLog("INFO", "Debug logging enabled")
+    DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccpfQuest Debug:|r Logging enabled - check WTF/Account/[Account]/SavedVariables/pfQuest.lua")
   else
     pfQuest.debug.AddLog("INFO", "Debug logging disabled")
   end

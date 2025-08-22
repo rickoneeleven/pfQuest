@@ -214,6 +214,19 @@ pfQuest.route:SetScript("OnUpdate", function()
         pfQuest.debug.AddLog("INFO", "Player in zone: " .. currentZone)
       end
       
+      -- Get all quests from quest log first
+      local allQuests = {}
+      for questid, questdata in pairs(pfQuest.questlog or {}) do
+        local questTitle = questdata.title or tostring(questid)
+        allQuests[questTitle] = {
+          id = questid,
+          hasNodes = false,
+          nodeCount = 0,
+          zones = {},
+          reason = "No routable objectives found"
+        }
+      end
+      
       -- Analyze coordinates by quest
       local questCoords = {}
       local zonesFound = {}
@@ -228,34 +241,66 @@ pfQuest.route:SetScript("OnUpdate", function()
           questCoords[questName].count = questCoords[questName].count + 1
           questCoords[questName].zones[questZone] = true
           zonesFound[questZone] = (zonesFound[questZone] or 0) + 1
+          
+          -- Mark quest as having nodes
+          if allQuests[questName] then
+            allQuests[questName].hasNodes = true
+            allQuests[questName].nodeCount = questCoords[questName].count
+            allQuests[questName].zones = questCoords[questName].zones
+            allQuests[questName].reason = nil
+          end
         end
       end
       
-      -- Log quest analysis
-      local questCount = 0
-      for _ in pairs(questCoords) do questCount = questCount + 1 end
-      if questCount > 0 then
-        pfQuest.debug.AddLog("INFO", "Quest analysis - " .. questCount .. " quests with routable nodes:")
-        for questName, info in pairs(questCoords) do
-          local zones = ""
-          for zone, _ in pairs(info.zones) do
-            zones = zones .. zone .. " "
+      -- Complete quest log analysis
+      pfQuest.debug.AddLog("INFO", "========== COMPLETE QUEST LOG ANALYSIS ==========")
+      
+      -- Count totals
+      local routableCount = 0
+      local skippedCount = 0
+      for _, info in pairs(allQuests) do
+        if info.hasNodes then 
+          routableCount = routableCount + 1
+        else 
+          skippedCount = skippedCount + 1 
+        end
+      end
+      
+      pfQuest.debug.AddLog("INFO", "Total quests: " .. (routableCount + skippedCount) .. " (" .. routableCount .. " routable, " .. skippedCount .. " skipped)")
+      
+      -- Log routable quests
+      if routableCount > 0 then
+        pfQuest.debug.AddLog("INFO", "--- ROUTABLE QUESTS ---")
+        for questName, info in pairs(allQuests) do
+          if info.hasNodes then
+            local zones = ""
+            for zone, _ in pairs(info.zones) do
+              zones = zones .. zone .. " "
+            end
+            pfQuest.debug.AddLog("INFO", "[✓] '" .. questName .. "' - " .. info.nodeCount .. " objectives in " .. zones)
           end
-          pfQuest.debug.AddLog("INFO", "- '" .. questName .. "' (" .. info.count .. " nodes in " .. zones .. ")")
         end
-        
-        -- Log zones summary
-        local otherZones = ""
-        for zone, count in pairs(zonesFound) do
-          if zone ~= currentZone then
-            otherZones = otherZones .. zone .. "(" .. count .. ") "
+      end
+      
+      -- Log skipped quests with reasons
+      if skippedCount > 0 then
+        pfQuest.debug.AddLog("INFO", "--- SKIPPED QUESTS (No Routing) ---")
+        for questName, info in pairs(allQuests) do
+          if not info.hasNodes then
+            pfQuest.debug.AddLog("INFO", "[✗] '" .. questName .. "' - " .. info.reason)
           end
         end
-        if otherZones ~= "" then
-          pfQuest.debug.AddLog("INFO", "Cross-zone objectives found in: " .. otherZones)
+      end
+      
+      -- Log zones summary
+      local otherZones = ""
+      for zone, count in pairs(zonesFound) do
+        if zone ~= currentZone then
+          otherZones = otherZones .. zone .. "(" .. count .. ") "
         end
-      else
-        pfQuest.debug.AddLog("WARNING", "No quest coordinates found for routing")
+      end
+      if otherZones ~= "" then
+        pfQuest.debug.AddLog("INFO", "Cross-zone objectives found in: " .. otherZones)
       end
     end
     table.sort(this.coords, sortfunc)
