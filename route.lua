@@ -376,10 +376,16 @@ pfQuest.route:SetScript("OnUpdate", function()
         end
       end
       
+      -- Store original coordinates before any modifications (for debug analysis)
+      local originalCoords = {}
+      for id, data in pairs(this.coords) do
+        originalCoords[id] = data
+      end
+      
       -- Capture routable quest info
       local routableQuestCount = 0
       local routableQuests = {}
-      for id, data in pairs(this.coords) do
+      for id, data in pairs(originalCoords) do
         if data[3] and data[3].title then
           local questLevel = data[3].qlvl or "?"
           routableQuests[data[3].title] = questLevel
@@ -389,7 +395,7 @@ pfQuest.route:SetScript("OnUpdate", function()
       
       -- Check if we have coords for the absolute lowest quest by examining ALL coordinates
       local hasRoutingForLowest = false
-      for id, data in pairs(this.coords) do
+      for id, data in pairs(originalCoords) do
         if data[3] and data[3].title and data[3].title == absoluteLowestQuest then
           hasRoutingForLowest = true
           break
@@ -414,8 +420,7 @@ pfQuest.route:SetScript("OnUpdate", function()
         manualQuestName = absoluteLowestQuest
         manualQuestLevel = absoluteLowestLevel
         
-        -- Clear coordinates to prevent routing to other quests
-        this.coords = {}
+        -- Clear paths but keep coordinates for debug analysis
         ClearPath(objectivepath)
         ClearPath(playerpath) 
         ClearPath(mplayerpath)
@@ -627,6 +632,11 @@ pfQuest.route.arrow:SetScript("OnUpdate", function()
     return
   else
     invalid = nil
+  end
+
+  -- skip arrow positioning when in manual completion mode
+  if manualQuestName then
+    return
   end
 
   -- arrow positioning stolen from TomTomVanilla.
