@@ -207,8 +207,72 @@ pfQuest.route:SetScript("OnUpdate", function()
   if not this.recalculate or this.recalculate < GetTime() then
     if pfQuest.debug and pfQuest.debug.IsEnabled() then
       pfQuest.debug.AddLog("DEBUG", "Starting route recalculation with " .. table.getn(this.coords) .. " coordinates")
+      
+      -- Log quest information and zone context
+      local currentZone = GetRealZoneText()
+      if currentZone then
+        pfQuest.debug.AddLog("INFO", "Player in zone: " .. currentZone)
+      end
+      
+      -- Analyze coordinates by quest
+      local questCoords = {}
+      local zonesFound = {}
+      for id, data in pairs(this.coords) do
+        if data[3] and data[3].title then
+          local questName = data[3].title
+          local questZone = data[3].zone or "Unknown"
+          
+          if not questCoords[questName] then
+            questCoords[questName] = {count = 0, zones = {}}
+          end
+          questCoords[questName].count = questCoords[questName].count + 1
+          questCoords[questName].zones[questZone] = true
+          zonesFound[questZone] = (zonesFound[questZone] or 0) + 1
+        end
+      end
+      
+      -- Log quest analysis
+      local questCount = 0
+      for _ in pairs(questCoords) do questCount = questCount + 1 end
+      if questCount > 0 then
+        pfQuest.debug.AddLog("INFO", "Quest analysis - " .. questCount .. " quests with routable nodes:")
+        for questName, info in pairs(questCoords) do
+          local zones = ""
+          for zone, _ in pairs(info.zones) do
+            zones = zones .. zone .. " "
+          end
+          pfQuest.debug.AddLog("INFO", "- '" .. questName .. "' (" .. info.count .. " nodes in " .. zones .. ")")
+        end
+        
+        -- Log zones summary
+        local otherZones = ""
+        for zone, count in pairs(zonesFound) do
+          if zone ~= currentZone then
+            otherZones = otherZones .. zone .. "(" .. count .. ") "
+          end
+        end
+        if otherZones ~= "" then
+          pfQuest.debug.AddLog("INFO", "Cross-zone objectives found in: " .. otherZones)
+        end
+      else
+        pfQuest.debug.AddLog("WARNING", "No quest coordinates found for routing")
+      end
     end
     table.sort(this.coords, sortfunc)
+    
+    -- Log routing decision after sorting
+    if pfQuest.debug and pfQuest.debug.IsEnabled() and this.coords[1] then
+      local selectedQuest = this.coords[1][3] and this.coords[1][3].title or "Unknown Quest"
+      local distance = this.coords[1][4] or 0
+      pfQuest.debug.AddLog("INFO", "Auto-routing to nearest: '" .. selectedQuest .. "' at " .. string.format("%.1f", distance) .. " units")
+      
+      -- Show alternatives for context
+      if this.coords[2] then
+        local altQuest = this.coords[2][3] and this.coords[2][3].title or "Unknown Quest"
+        local altDistance = this.coords[2][4] or 0
+        pfQuest.debug.AddLog("DEBUG", "Next closest option: '" .. altQuest .. "' at " .. string.format("%.1f", altDistance) .. " units")
+      end
+    end
 
     -- order list on custom targets
     if targetTitle and this.coords[1] and not pfQuest.route.IsTarget(this.coords[1][3]) then
@@ -225,7 +289,8 @@ pfQuest.route:SetScript("OnUpdate", function()
       -- rearrange coordinates
       if target then
         if pfQuest.debug and pfQuest.debug.IsEnabled() then
-          pfQuest.debug.AddLog("DEBUG", "Rearranging coordinates to prioritize target at index " .. target)
+          local targetQuest = this.coords[target][3] and this.coords[target][3].title or "Unknown Quest"
+          pfQuest.debug.AddLog("INFO", "Manual target prioritized: '" .. targetQuest .. "' (was index " .. target .. ")")
         end
         local tmp = {}
         table.insert(tmp, this.coords[target])
@@ -250,6 +315,15 @@ pfQuest.route:SetScript("OnUpdate", function()
 
   -- abort without any nodes or distances
   if not this.coords[1] or not this.coords[1][4] or pfQuest_config["routes"] == "0" then
+    if pfQuest.debug and pfQuest.debug.IsEnabled() then
+      if not this.coords[1] then
+        pfQuest.debug.AddLog("WARNING", "No routing available - no quest coordinates found")
+      elseif not this.coords[1][4] then
+        pfQuest.debug.AddLog("WARNING", "No routing available - coordinates have no calculated distance")
+      elseif pfQuest_config["routes"] == "0" then
+        pfQuest.debug.AddLog("INFO", "Routing disabled in configuration")
+      end
+    end
     ClearPath(objectivepath)
     ClearPath(playerpath)
     ClearPath(mplayerpath)
@@ -298,6 +372,9 @@ pfQuest.route:SetScript("OnUpdate", function()
   end
 
   if wrongmap then
+    if pfQuest.debug and pfQuest.debug.IsEnabled() then
+      pfQuest.debug.AddLog("WARNING", "No routing displayed - player position not available (wrong map or zone change)")
+    end
     -- hide player-to-object path
     ClearPath(playerpath)
     ClearPath(mplayerpath)
