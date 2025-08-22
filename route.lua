@@ -148,6 +148,11 @@ end
 pfQuest.route.AddPoint = function(self, tbl)
   table.insert(self.coords, tbl)
   self.firstnode = nil
+  if pfQuest.debug and pfQuest.debug.IsEnabled() then
+    local questName = tbl[3] and tbl[3].title or "Unknown"
+    local questLevel = tbl[3] and tbl[3].qlvl or "?"
+    pfQuest.debug.AddLog("DEBUG", "AddPoint: Added coordinate for [" .. questLevel .. "] '" .. questName .. "'")
+  end
 end
 
 local targetTitle, targetCluster, targetLayer, targetTexture = nil, nil, nil, nil
@@ -180,6 +185,8 @@ pfQuest.route.IsTarget = function(node)
 end
 
 local lastpos, completed = 0, 0
+local manualQuestName = nil
+local manualQuestLevel = nil
 local function sortfunc(a,b) return a[4] < b[4] end
 
 local function getQuestLevel(questid, questTitle)
@@ -389,7 +396,7 @@ pfQuest.route:SetScript("OnUpdate", function()
         end
       end
       
-      -- If the absolute lowest quest has no routing, force manual completion
+      -- If the absolute lowest quest has no routing, set state for manual completion
       if absoluteLowestQuest and not hasRoutingForLowest then
         if pfQuest.debug and pfQuest.debug.IsEnabled() then
           pfQuest.debug.AddLog("INFO", "Level routing: Found " .. routableQuestCount .. " routable quests, but forcing manual completion of lowest quest [" .. absoluteLowestLevel .. "] '" .. absoluteLowestQuest .. "'")
@@ -403,13 +410,9 @@ pfQuest.route:SetScript("OnUpdate", function()
           end
         end
         
-        -- Set up manual completion display
-        local color = pfMap:HexDifficultyColor(absoluteLowestLevel) or "|cffff5555"
-        pfQuest.route.arrow.title:SetText(color .. "[" .. absoluteLowestLevel .. "] " .. absoluteLowestQuest .. "|r")
-        pfQuest.route.arrow.description:SetText("|cffffcc00Complete manually - no route available|r")
-        pfQuest.route.arrow.texture:SetTexture(pfQuestConfig.path.."\\img\\node")
-        pfQuest.route.arrow.texture:SetVertexColor(1, 0.5, 0.5, 1)
-        pfQuest.route.arrow:Show()
+        -- Set persistent state for manual completion
+        manualQuestName = absoluteLowestQuest
+        manualQuestLevel = absoluteLowestLevel
         
         -- Clear coords to prevent normal routing
         this.coords = {}
@@ -417,6 +420,10 @@ pfQuest.route:SetScript("OnUpdate", function()
         ClearPath(playerpath) 
         ClearPath(mplayerpath)
         return
+      else
+        -- Clear manual state if we have routing for lowest quest
+        manualQuestName = nil
+        manualQuestLevel = nil
       end
     end
     
@@ -474,6 +481,19 @@ pfQuest.route:SetScript("OnUpdate", function()
   -- show arrow when route exists and is stable
   if not wrongmap and this.coords[1] and this.coords[1][4] and not this.arrow:IsShown() and pfQuest_config["arrow"] == "1" and GetTime() > completed + 1 then
     this.arrow:Show()
+  end
+
+  -- Handle manual completion display outside recalculation
+  if manualQuestName and manualQuestLevel and pfQuest_config["arrow"] == "1" then
+    local color = pfMap:HexDifficultyColor(manualQuestLevel) or "|cffff5555"
+    pfQuest.route.arrow.title:SetText(color .. "[" .. manualQuestLevel .. "] " .. manualQuestName .. "|r")
+    pfQuest.route.arrow.description:SetText("|cffffcc00Complete manually - no route available|r")
+    pfQuest.route.arrow.texture:SetTexture(pfQuestConfig.path.."\\img\\node")
+    pfQuest.route.arrow.texture:SetVertexColor(1, 0.5, 0.5, 1)
+    pfQuest.route.arrow:Show()
+    if pfQuest.debug and pfQuest.debug.IsEnabled() then
+      pfQuest.debug.AddLog("DEBUG", "Manual completion arrow displayed for [" .. manualQuestLevel .. "] '" .. manualQuestName .. "'")
+    end
   end
 
 
