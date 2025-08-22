@@ -185,12 +185,12 @@ local function sortfunc(a,b) return a[4] < b[4] end
 local function getQuestLevel(questid, questTitle)
   -- Try numeric quest ID first
   if tonumber(questid) then
-    return quests[questid] and quests[questid]["lvl"]
+    return pfDB["quests"]["data"][questid] and pfDB["quests"]["data"][questid]["lvl"]
   else
     -- Try to find quest by title for non-database quests
     for qid, qdata in pairs(pfDB["quests"]["loc"] or {}) do
       if qdata.T == questTitle then
-        return quests[tonumber(qid)] and quests[tonumber(qid)]["lvl"]
+        return pfDB["quests"]["data"][tonumber(qid)] and pfDB["quests"]["data"][tonumber(qid)]["lvl"]
       end
     end
   end
