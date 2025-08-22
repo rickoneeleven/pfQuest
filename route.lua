@@ -616,8 +616,8 @@ pfQuest.route.arrow:SetScript("OnUpdate", function()
   wrongmap = xplayer == 0 and yplayer == 0 and true or nil
   target = this.parent.coords and this.parent.coords[1] and this.parent.coords[1][4] and this.parent.coords[1] or nil
 
-  -- disable arrow on invalid map/route
-  if not target or wrongmap or pfQuest_config["arrow"] == "0" then
+  -- disable arrow on invalid map/route (but not during manual completion)
+  if (not target or wrongmap or pfQuest_config["arrow"] == "0") and not manualQuestName then
     if invalid and invalid < GetTime() then
       this:Hide()
     elseif not invalid then
