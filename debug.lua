@@ -1,8 +1,7 @@
 -- Ensure pfQuest exists before creating debug module
 pfQuest = pfQuest or {}
 pfQuest.debug = CreateFrame("Frame")
-
-local debugEnabled = false
+pfQuest.debug.enabled = false
 local maxLogEntries = 1000
 local testTimer = nil
 
@@ -21,7 +20,7 @@ function pfQuest.debug.AddLog(level, message)
   end
   
   -- Always log startup/shutdown messages even if not enabled
-  if not debugEnabled and level ~= "INFO" then return end
+  if not pfQuest.debug.enabled and level ~= "INFO" then return end
   
   local timestamp = GetTimestamp()
   local logEntry = timestamp .. " [" .. level .. "] " .. message
@@ -39,12 +38,12 @@ function pfQuest.debug.AddLog(level, message)
 end
 
 function pfQuest.debug.IsEnabled()
-  return debugEnabled
+  return pfQuest.debug.enabled
 end
 
 function pfQuest.debug.SetEnabled(enabled)
   print("pfQuest debug: SetEnabled called with " .. tostring(enabled))
-  debugEnabled = enabled
+  pfQuest.debug.enabled = enabled
   
   if enabled and not testTimer then
     print("pfQuest debug: Creating test timer")
