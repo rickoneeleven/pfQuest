@@ -182,6 +182,12 @@ end
 local lastpos, completed = 0, 0
 local function sortfunc(a,b) return a[4] < b[4] end
 pfQuest.route:SetScript("OnUpdate", function()
+  -- Debug: log route function activity (throttled)
+  if pfQuest.debug and pfQuest.debug.IsEnabled() and (not this.debug_throttle or this.debug_throttle < GetTime()) then
+    pfQuest.debug.AddLog("DEBUG", "Route OnUpdate function called")
+    this.debug_throttle = GetTime() + 10  -- Only log every 10 seconds to avoid spam
+  end
+
   local xplayer, yplayer = GetPlayerMapPosition("player")
   local wrongmap = xplayer == 0 and yplayer == 0 and true or nil
   local curpos = xplayer + yplayer
@@ -201,6 +207,11 @@ pfQuest.route:SetScript("OnUpdate", function()
       local x, y = (xplayer*100 - data[1])*1.5, yplayer*100 - data[2]
       this.coords[id][4] = ceil(math.sqrt(x*x+y*y)*100)/100
     end
+  end
+
+  -- Debug: always log when route calculation is called
+  if pfQuest.debug and pfQuest.debug.IsEnabled() then
+    pfQuest.debug.AddLog("DEBUG", "Route calculation called with " .. table.getn(this.coords) .. " total coordinates")
   end
 
   -- sort all coords by distance only once per second
